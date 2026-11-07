@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Coffee x Coyote - Touch Kiosk & Barista OS</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              deepBlack: '#0D0D0D',
+              darkEspresso: '#1A0E08',
+              espresso: '#2A180D',
+              brownCard: '#3D2314',
+              border: '#4A2E1C',
+              coffee: '#A67C52',
+              gold: '#D4A373',
+              latte: '#FAEDCD',
+              light: '#FFFFFF'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #0D0D0D;
+      color: #FFFFFF;
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1A0E08;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #4A2E1C;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #D4A373;
+    }
+    .kiosk-card {
+      background: linear-gradient(145deg, #2A180D, #1A0E08);
+      border: 1px solid #4A2E1C;
+    }
+    .kiosk-card-active {
+      border-color: #D4A373;
+      box-shadow: 0 0 15px rgba(212, 163, 115, 0.2);
+    }
+    .gold-glow {
+      box-shadow: 0 0 20px rgba(212, 163, 115, 0.25);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-brand-gold selection:text-brand-deepBlack">
+
+  <!-- TOP HEADER & ROLE SWITCHER (GUEST KIOSK VS BARISTA TERMINAL) -->
+  <header class="sticky top-0 z-50 bg-brand-darkEspresso/95 backdrop-blur-md border-b border-brand-border px-4 lg:px-8 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-gold to-brand-coffee flex items-center justify-center text-brand-deepBlack font-black text-xl shadow-lg">
+          <i class="fa-solid fa-mug-hot"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-black text-lg tracking-wider text-white">GLOBAL COFFEE</h1>
+            <span class="bg-brand-gold/20 text-brand-gold text-[10px] font-bold px-2 py-0.5 rounded border border-brand-gold/30">Coyote Kiosk</span>
+          </div>
+          <p class="text-xs text-stone-400">Сенсорный терминал & POS Бариста</p>
+        </div>
+      </div>
+
+      <!-- Mode Switcher -->
+      <div class="bg-brand-deepBlack p-1 rounded-xl border border-brand-border flex items-center gap-1 w-full sm:w-auto">
+        <button id="nav-guest" onclick="switchRole('guest')" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition-all bg-brand-gold text-brand-deepBlack shadow-md">
+          <i class="fa-solid fa-hand-pointer"></i>
+          <span>Сенсор Гостя (Фудкорт)</span>
+        </button>
+        <button id="nav-barista" onclick="switchRole('barista')" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition-all text-stone-400 hover:text-white">
+          <i class="fa-solid fa-cash-register"></i>
+          <span>Терминал Бариста</span>
+          <span id="pending-badge" class="w-5 h-5 rounded-full bg-amber-500 text-brand-deepBlack text-[10px] font-black flex items-center justify-center hidden">0</span>
+        </button>
+      </div>
+
+      <!-- Active Shift Info -->
+      <div id="barista-shift-badge" class="hidden sm:flex items-center gap-2 text-xs text-stone-300 bg-brand-espresso px-3 py-1.5 rounded-lg border border-brand-border">
+        <i class="fa-solid fa-user-check text-brand-gold"></i>
+        <span>Смена: <strong id="active-barista-name" class="text-white">Асан (Бариста #1)</strong></span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <main class="max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 flex-1">
+
+    <!-- =================================================================== -->
+    <!-- VIEW 1: GUEST TOUCH KIOSK (СЕНСОРНЫЙ КИОСК ГОСТЯ)                   -->
+    <!-- =================================================================== -->
+    <section id="view-guest" class="space-y-6">
+      
+      <!-- Weather Recommendation Banner & Active Order Tracker -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        <!-- Weather Recommendation Widget -->
+        <div class="lg:col-span-7 kiosk-card rounded-2xl p-5 border border-brand-border relative overflow-hidden flex items-center gap-4">
+          <div class="w-14 h-14 rounded-2xl bg-brand-gold/20 border border-brand-gold/40 flex items-center justify-center text-brand-gold text-2xl shrink-0">
+            <i class="fa-solid fa-cloud-sun-rain"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-gold">Рекомендация по погоде</span>
+              <span class="text-[10px] bg-stone-800 text-stone-300 px-2 py-0.5 rounded">Астана +12°C</span>
+            </div>
+            <h3 class="text-base sm:text-lg font-bold text-white mt-0.5">Сегодня прохладно! Попробуйте <span class="text-brand-gold">Пряный Лавандовый Раф</span></h3>
+            <p class="text-xs text-stone-400 mt-0.5">Согревающий со сливками 10% и натуральной лавандой.</p>
+          </div>
+        </div>
+
+        <!-- Live Order Timer Tracker (Visible when order is placed) -->
+        <div id="guest-order-tracker" class="lg:col-span-5 kiosk-card rounded-2xl p-5 border border-brand-border flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-amber-400 flex items-center gap-1">
+              <i class="fa-solid fa-spinner animate-spin"></i> Статус заказа #GC-901
+            </span>
+            <h4 id="tracker-status-text" class="text-sm font-bold text-white mt-1">Ожидает подтверждения бариста</h4>
+            <p class="text-xs text-stone-400">Ориентировочно: <span id="tracker-target-time" class="text-brand-gold font-semibold">3-4 мин</span></p>
+          </div>
+          <div class="text-right bg-brand-deepBlack px-4 py-2 rounded-xl border border-brand-border">
+            <span class="text-[10px] text-stone-400 uppercase block">Время с заказа</span>
+            <span id="tracker-timer" class="text-xl font-mono font-bold text-brand-gold">00:00</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Bestsellers Section -->
+      <div>
+        <h3 class="text-sm font-bold uppercase tracking-widest text-brand-gold mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-fire text-amber-500"></i> ХИТЫ ПРОДАЖ GLOBAL COFFEE
+        </h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div onclick="openCustomizeModal('raf')" class="kiosk-card p-3 rounded-xl border border-brand-border hover:border-brand-gold transition cursor-pointer flex items-center gap-3">
+            <div class="w-12 h-12 rounded-lg bg-brand-espresso flex items-center justify-center text-brand-gold text-xl font-bold shrink-0">
+              <i class="fa-solid fa-mug-hot"></i>
+            </div>
+            <div class="overflow-hidden">
+              <h4 class="text-xs font-bold text-white truncate">Лавандовый Раф</h4>
+              <span class="text-[11px] text-brand-gold font-bold">1 490 ₸</span>
+              <span class="text-[10px] text-stone-400 block">3-4 мин • 280 ккал</span>
+            </div>
+          </div>
+          <div onclick="openCustomizeModal('latte')" class="kiosk-card p-3 rounded-xl border border-brand-border hover:border-brand-gold transition cursor-pointer flex items-center gap-3">
+            <div class="w-12 h-12 rounded-lg bg-brand-espresso flex items-center justify-center text-brand-gold text-xl font-bold shrink-0">
+              <i class="fa-solid fa-mug-saucer"></i>
+            </div>
+            <div class="overflow-hidden">
+              <h4 class="text-xs font-bold text-white truncate">Латте Макиато</h4>
+              <span class="text-[11px] text-brand-gold font-bold">1 290 ₸</span>
+              <span class="text-[10px] text-stone-400 block">2-3 мин • 210 ккал</span>
+            </div>
+          </div>
+          <div onclick="openCustomizeModal('ice_caramel')" class="kiosk-card p-3 rounded-xl border border-brand-border hover:border-brand-gold transition cursor-pointer flex items-center gap-3">
+            <div class="w-12 h-12 rounded-lg bg-brand-espresso flex items-center justify-center text-brand-gold text-xl font-bold shrink-0">
+              <i class="fa-solid fa-glass-water font-bold"></i>
+            </div>
+            <div class="overflow-hidden">
+              <h4 class="text-xs font-bold text-white truncate">Айс Карамель</h4>
+              <span class="text-[11px] text-brand-gold font-bold">1 590 ₸</span>
+              <span class="text-[10px] text-stone-400 block">3 мин • 240 ккал</span>
+            </div>
+          </div>
+          <div onclick="openCustomizeModal('cheesecake')" class="kiosk-card p-3 rounded-xl border border-brand-border hover:border-brand-gold transition cursor-pointer flex items-center gap-3">
+            <div class="w-12 h-12 rounded-lg bg-brand-espresso flex items-center justify-center text-brand-gold text-xl font-bold shrink-0">
+              <i class="fa-solid fa-cake-candles"></i>
+            </div>
+            <div class="overflow-hidden">
+              <h4 class="text-xs font-bold text-white truncate">Сан-Себастьян</h4>
+              <span class="text-[11px] text-brand-gold font-bold">1 890 ₸</span>
+              <span class="text-[10px] text-stone-400 block">Готово • 390 ккал</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Kiosk Menu Categories Filter -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-2">
+        <button onclick="filterCategory('all')" id="cat-all" class="px-5 py-2.5 rounded-xl bg-brand-gold text-brand-deepBlack font-bold text-xs shrink-0 transition">Все позиции</button>
+        <button onclick="filterCategory('coffee')" id="cat-coffee" class="px-5 py-2.5 rounded-xl bg-brand-espresso text-stone-300 font-bold text-xs shrink-0 border border-brand-border hover:border-brand-gold transition">☕ Классический Кофе</button>
+        <button onclick="filterCategory('cold')" id="cat-cold" class="px-5 py-2.5 rounded-xl bg-brand-espresso text-stone-300 font-bold text-xs shrink-0 border border-brand-border hover:border-brand-gold transition">🥤 Холодные & Сезонные</button>
+        <button onclick="filterCategory('tea')" id="cat-tea" class="px-5 py-2.5 rounded-xl bg-brand-espresso text-stone-300 font-bold text-xs shrink-0 border border-brand-border hover:border-brand-gold transition">🫖 Авторские Чаи</button>
+        <button onclick="filterCategory('dessert')" id="cat-dessert" class="px-5 py-2.5 rounded-xl bg-brand-espresso text-stone-300 font-bold text-xs shrink-0 border border-brand-border hover:border-brand-gold transition">🍰 Десерты & Выпечка</button>
+      </div>
+
+      <!-- Menu Grid Cards -->
+      <div id="kiosk-menu-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Cards injected dynamically via JavaScript -->
+      </div>
+
+      <!-- Bottom Interactive Bar: AI FAQ & Kiosk Help -->
+      <div class="kiosk-card rounded-2xl p-5 border border-brand-border flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-brand-gold/20 border border-brand-gold/40 flex items-center justify-center text-brand-gold shrink-0">
+            <i class="fa-solid fa-circle-question text-lg"></i>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-white">Возникли вопросы по составу или аллергенам?</h4>
+            <p class="text-xs text-stone-400">Спросите у Умного Помощника сети Global Coffee</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <input type="text" id="kiosk-faq-input" placeholder="Например: Есть ли глютен в рафе?" class="bg-brand-deepBlack border border-brand-border rounded-xl px-4 py-2 text-xs text-white placeholder-stone-600 focus:outline-none focus:border-brand-gold w-full sm:w-64">
+          <button onclick="askKioskFAQ()" class="px-4 py-2 bg-brand-gold text-brand-deepBlack rounded-xl text-xs font-bold hover:bg-brand-latte transition shrink-0">
+            Спросить
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 2: BARISTA POS TERMINAL (ТЕРМИНАЛ БАРИСТА)                    -->
+    <!-- =================================================================== -->
+    <section id="view-barista" class="space-y-6 hidden">
+      
+      <!-- Barista Shift Management & Inventory Top Panel -->
+      <div class="kiosk-card rounded-2xl p-5 border border-brand-border flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        
+        <!-- Active Barista Account -->
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-brand-espresso border border-brand-gold/40 flex items-center justify-center text-brand-gold text-xl font-bold">
+            <i class="fa-solid fa-id-badge"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="pos-barista-name" class="text-base font-bold text-white">Бариста: Асан (Смена #1)</h2>
+              <button onclick="switchBaristaAccount()" class="text-[10px] text-brand-gold hover:underline bg-brand-gold/10 px-2 py-0.5 rounded border border-brand-gold/20">
+                <i class="fa-solid fa-right-from-bracket"></i> Сменить аккаунт
+              </button>
+            </div>
+            <p class="text-xs text-stone-400">Принято заказов на смене: <strong id="shift-completed-count" class="text-brand-gold">0 позиций</strong></p>
+          </div>
+        </div>
+
+        <!-- Shift Control Actions -->
+        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <button onclick="openInventoryManager()" class="flex-1 md:flex-none px-4 py-2 bg-brand-espresso hover:bg-brand-border text-stone-200 border border-brand-border rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition">
+            <i class="fa-solid fa-boxes-stacked text-brand-gold"></i>
+            <span>Управление стоп-листом</span>
+          </button>
+          <button onclick="closeBaristaShift()" class="flex-1 md:flex-none px-4 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-900/50 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition">
+            <i class="fa-solid fa-receipt"></i>
+            <span>Закрытие смены / Отчет</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Main Barista Workflow: Incoming Queue & Recipe Panel -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left: Incoming Orders Queue -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-stone-300 flex items-center gap-2">
+              <i class="fa-solid fa-bell text-amber-500 animate-pulse"></i>
+              ПОСТУПАЮЩИЕ ЗАКАЗЫ С СЕНСОРА
+            </h3>
+            <span class="text-xs text-stone-400">Нажмите для выбора рецепта</span>
+          </div>
+
+          <!-- Queue Container -->
+          <div id="barista-queue-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-1">
+            <!-- Dynamic Orders will be injected here -->
+          </div>
+        </div>
+
+        <!-- Right: Order Step-by-Step Recipe & Golden Pace Timer -->
+        <div class="lg:col-span-7 space-y-4">
+          <div id="barista-recipe-panel" class="kiosk-card rounded-2xl p-6 border border-brand-border space-y-5 min-h-[400px] flex flex-col justify-center">
+            
+            <div class="text-center py-12 text-stone-500 space-y-3">
+              <div class="w-16 h-16 rounded-2xl bg-brand-espresso/60 mx-auto flex items-center justify-center text-brand-gold text-2xl">
+                <i class="fa-solid fa-hand-pointer"></i>
+              </div>
+              <p class="text-sm max-w-sm mx-auto">Выберите заказ из очереди слева, чтобы открыть пошаговую технологическую карту и таймер приготовления.</p>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL 1: GUEST CUSTOMIZER MODAL ("Граммовка от клиента") -->
+  <div id="modal-customize" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="kiosk-card rounded-2xl max-w-lg w-full p-6 space-y-5 border border-brand-border shadow-2xl">
+      
+      <div class="flex items-start justify-between border-b border-brand-border pb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-brand-espresso flex items-center justify-center text-brand-gold text-xl font-bold shrink-0">
+            <i class="fa-solid fa-mug-hot"></i>
+          </div>
+          <div>
+            <h3 id="cust-item-title" class="text-lg font-bold text-white">Айс Карамель</h3>
+            <p id="cust-item-comp" class="text-xs text-stone-400">Состав: Эспрессо, холодное молоко, карамельный топинг, очищенный лед</p>
+            <span class="inline-block text-[10px] bg-brand-deepBlack text-brand-gold px-2 py-0.5 rounded border border-brand-border mt-1">3 мин</span>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-customize')" class="text-stone-400 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        
+        <!-- Size Selection -->
+        <div>
+          <label class="block text-stone-400 font-bold mb-1.5 uppercase tracking-wider">Размер напитка</label>
+          <div class="grid grid-cols-3 gap-2" id="cust-size-options">
+            <button onclick="selectSizeOpt(this, 'S (250 мл)')" class="size-btn p-2 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 text-center font-medium">S (250 мл)</button>
+            <button onclick="selectSizeOpt(this, 'M (350 мл)')" class="size-btn p-2 rounded-xl border border-brand-gold bg-brand-gold/20 text-white text-center font-medium">M (350 мл)</button>
+            <button onclick="selectSizeOpt(this, 'L (450 мл) +200₸')" class="size-btn p-2 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 text-center font-medium">L (450 мл) +200₸</button>
+          </div>
+        </div>
+
+        <!-- Milk Selection -->
+        <div>
+          <label class="block text-stone-400 font-bold mb-1.5 uppercase tracking-wider">Выбор молока</label>
+          <div class="grid grid-cols-2 gap-2" id="cust-milk-options">
+            <button onclick="selectMilkOpt(this, 'Обычное 3.2%')" class="milk-btn p-2.5 rounded-xl border border-brand-gold bg-brand-gold/20 text-white font-medium text-center">Обычное 3.2%</button>
+            <button onclick="selectMilkOpt(this, 'Овсяное (+250 ₸)')" class="milk-btn p-2.5 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 font-medium text-center">Овсяное (+250 ₸)</button>
+            <button onclick="selectMilkOpt(this, 'Миндальное (+300 ₸)')" class="milk-btn p-2.5 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 font-medium text-center">Миндальное (+300 ₸)</button>
+            <button onclick="selectMilkOpt(this, 'Безлактозное')" class="milk-btn p-2.5 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 font-medium text-center">Безлактозное</button>
+          </div>
+        </div>
+
+        <!-- Sugar Level -->
+        <div>
+          <label class="block text-stone-400 font-bold mb-1.5 uppercase tracking-wider">Уровень сахара</label>
+          <div class="grid grid-cols-3 gap-2" id="cust-sugar-options">
+            <button onclick="selectSugarOpt(this, '0% (Без сахара)')" class="sugar-btn p-2 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 text-center">0% (Без сахара)</button>
+            <button onclick="selectSugarOpt(this, '100% (Стандарт)')" class="sugar-btn p-2 rounded-xl border border-brand-gold bg-brand-gold/20 text-white text-center">100% (Стандарт)</button>
+            <button onclick="selectSugarOpt(this, '150% (Послаще)')" class="sugar-btn p-2 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 text-center">150% (Послаще)</button>
+          </div>
+        </div>
+
+        <!-- Client Custom Grammage / Notes -->
+        <div>
+          <label class="block text-stone-400 font-bold mb-1.5 uppercase tracking-wider">Индивидуальные пожелания и граммовка</label>
+          <input type="text" id="cust-grammage-input" placeholder="Например: '20мл сиропа, горячее 75°C, корицу сверху'" class="w-full bg-brand-deepBlack border border-brand-border rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-600 focus:outline-none focus:border-brand-gold">
+        </div>
+
+      </div>
+
+      <!-- Confirm Order Button -->
+      <div class="pt-2 flex items-center justify-between border-t border-brand-border">
+        <div>
+          <span class="text-[10px] text-stone-400 block">Стоимость</span>
+          <span id="cust-item-price" class="text-lg font-extrabold text-brand-gold">1 590 ₸</span>
+        </div>
+        <button onclick="proceedToPayment()" class="px-6 py-3 bg-gradient-to-r from-brand-coffee to-brand-gold hover:from-brand-gold hover:to-brand-latte text-brand-deepBlack font-black rounded-xl text-xs shadow-lg transition">
+          Оплатить по QR-коду
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 1.5: QR CODE PAYMENT MODAL (KASPI / HALYK) -->
+  <div id="modal-qr-payment" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="kiosk-card rounded-2xl max-w-sm w-full p-6 text-center space-y-4 border border-brand-border shadow-2xl">
+      <div class="flex items-center justify-between border-b border-brand-border pb-2">
+        <span class="text-xs font-bold text-stone-400">Оплата заказа</span>
+        <button onclick="closeModal('modal-qr-payment')" class="text-stone-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-1">
+        <h3 class="text-base font-bold text-white">Сканируйте QR-код для оплаты</h3>
+        <p class="text-xs text-stone-400">Поддерживаются Kaspi.kz, Halyk и банковские карты</p>
+      </div>
+
+      <!-- Mock QR Code -->
+      <div class="bg-white p-4 rounded-2xl inline-block mx-auto border-4 border-brand-gold shadow-inner">
+        <div class="w-48 h-48 bg-stone-900 rounded-lg p-2 flex flex-col justify-between items-center relative overflow-hidden">
+          <div class="grid grid-cols-6 gap-1.5 w-full h-full">
+            <div class="bg-white rounded"></div><div class="bg-white rounded"></div><div class="bg-white rounded"></div><div class="bg-stone-900"></div><div class="bg-white rounded"></div><div class="bg-white rounded"></div>
+            <div class="bg-white rounded"></div><div class="bg-stone-900"></div><div class="bg-white rounded"></div><div class="bg-white rounded"></div><div class="bg-stone-900"></div><div class="bg-white rounded"></div>
+            <div class="bg-white rounded"></div><div class="bg-white rounded"></div><div class="bg-white rounded"></div><div class="bg-stone-900"></div><div class="bg-white rounded"></div><div class="bg-stone-900"></div>
+            <div class="bg-stone-900"></div><div class="bg-white rounded"></div><div class="bg-stone-900"></div><div class="bg-white rounded"></div><div class="bg-stone-900"></div><div class="bg-white rounded"></div>
+            <div class="bg-white rounded"></div><div class="bg-stone-900"></div><div class="bg-white rounded"></div><div class="bg-stone-900"></div><div class="bg-white rounded"></div><div class="bg-white rounded"></div>
+            <div class="bg-white rounded"></div><div class="bg-white rounded"></div><div class="bg-stone-900"></div><div class="bg-white rounded"></div><div class="bg-white rounded"></div><div class="bg-white rounded"></div>
+          </div>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-10 h-10 bg-brand-deepBlack rounded-lg border-2 border-brand-gold flex items-center justify-center text-brand-gold font-bold text-xs">
+              GC
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-xs text-stone-300 font-medium">
+        К оплате: <strong id="qr-total-amount" class="text-brand-gold text-sm font-bold">1 590 ₸</strong>
+      </div>
+
+      <button onclick="submitGuestOrder()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs transition flex items-center justify-center gap-2">
+        <i class="fa-solid fa-qrcode"></i>
+        <span>Подтвердить успешную оплату</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 2: INVENTORY & OUT-OF-STOCK MANAGER ("Отметить нет продуктов") -->
+  <div id="modal-inventory" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="kiosk-card rounded-2xl max-w-md w-full p-6 space-y-4 border border-brand-border shadow-2xl">
+      <div class="flex items-center justify-between border-b border-brand-border pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-boxes-stacked text-brand-gold"></i>
+          Управление стоп-листом точки
+        </h3>
+        <button onclick="closeModal('modal-inventory')" class="text-stone-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-stone-400">Отметьте отсутствующие позиции. На сенсоре гостя сразу появится плашка "Нет в наличии".</p>
+
+      <div class="space-y-2 text-xs" id="inventory-toggle-list">
+        <!-- Injected via JS -->
+      </div>
+
+      <button onclick="closeModal('modal-inventory')" class="w-full py-2.5 bg-brand-gold text-brand-deepBlack font-bold rounded-xl text-xs">
+        Сохранить и обновить сенсор
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 3: SHIFT ACCOUNT SWITCHER FOR BARISTA -->
+  <div id="modal-barista-switch" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="kiosk-card rounded-2xl max-w-xs w-full p-5 space-y-4 border border-brand-border text-center">
+      <h3 class="text-sm font-bold text-white">Выберите аккаунт бариста</h3>
+      <div class="space-y-2 text-xs">
+        <button onclick="setBaristaAccount('Асан (Бариста #1)')" class="w-full py-2.5 bg-brand-espresso hover:bg-brand-border border border-brand-border rounded-xl text-white font-medium">
+          👤 Асан (Бариста #1)
+        </button>
+        <button onclick="setBaristaAccount('Диана (Старший Бариста)')" class="w-full py-2.5 bg-brand-espresso hover:bg-brand-border border border-brand-border rounded-xl text-white font-medium">
+          👤 Диана (Старший Бариста)
+        </button>
+        <button onclick="setBaristaAccount('Нурсултан (Стажер)')" class="w-full py-2.5 bg-brand-espresso hover:bg-brand-border border border-brand-border rounded-xl text-white font-medium">
+          👤 Нурсултан (Стажер)
+        </button>
+      </div>
+      <button onclick="closeModal('modal-barista-switch')" class="text-xs text-stone-500 hover:underline">Отмена</button>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-brand-border bg-brand-darkEspresso py-4 px-4 text-center text-xs text-stone-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <p>© 2026 Global Coffee x Coyote POS. Синхронизированный Kiosk & Barista OS.</p>
+      <span class="text-brand-gold font-mono text-[11px]"><i class="fa-solid fa-wifi text-emerald-500"></i> Coyote Sync Active</span>
+    </div>
+  </footer>
+
+  <!-- APPLICATION STATE & CONTROLLER SCRIPT -->
+  <script>
+    // GLOBAL MENU DATA
+    let menuData = [
+      { id: 'raf', name: 'Лавандовый Раф', cat: 'coffee', price: '1 490 ₸', time: '3-4 мин', comp: 'Эспрессо, сливки 10%, натуральная лаванда', available: true },
+      { id: 'latte', name: 'Латте Макиато', cat: 'coffee', price: '1 290 ₸', time: '2-3 мин', comp: 'Эспрессо, цельное молоко, молочная пенка', available: true },
+      { id: 'cappuccino', name: 'Капучино Классик', cat: 'coffee', price: '1 190 ₸', time: '2 мин', comp: 'Эспрессо, взбитое молоко', available: true },
+      { id: 'ice_caramel', name: 'Айс Карамель', cat: 'cold', price: '1 590 ₸', time: '3 мин', comp: 'Эспрессо, холодное молоко, карамельный топинг, очищенный лед', available: true },
+      { id: 'bumble', name: 'Бамбл Кофе', cat: 'cold', price: '1 690 ₸', time: '3 мин', comp: 'Эспрессо, апельсиновый сок, карамельный сироп', available: true },
+      { id: 'matcha', name: 'Матча Латте', cat: 'tea', price: '1 490 ₸', time: '3 мин', comp: 'Японский чай матча, овсяное молоко', available: true },
+      { id: 'cheesecake', name: 'Сан-Себастьян', cat: 'dessert', price: '1 890 ₸', time: 'Готово', comp: 'Запеченный сливочный сыр, шоколадный соус', available: true }
+    ];
+
+    // RECIPES & STEP-BY-STEP INSTRUCTIONS FOR BARISTA
+    const recipesDB = {
+      'raf': {
+        title: 'Лавандовый Раф (350 мл)',
+        steps: [
+          'Влить в питчер 250 мл сливок 10%.',
+          'Добавить 15 мл лавандового сиропа.',
+          'Сварить 1 шот эспрессо (18г зерна) прямо в питчер.',
+          'Взбить всё вместе паровиком до глянцевой пены (65°C).'
+        ],
+        goldenTimeSec: 210
+      },
+      'latte': {
+        title: 'Латте Макиато (400 мл)',
+        steps: [
+          'Взбить 280 мл молока 3.2% с пышной пеной.',
+          'Перелить молоко в прозрачный стакан.',
+          'Сварить шот эспрессо и тонкой струйкой влить по центру.'
+        ],
+        goldenTimeSec: 150
+      },
+      'cappuccino': {
+        title: 'Капучино Классик (300 мл)',
+        steps: [
+          'Сварить 1 шот эспрессо в керамическую чашку.',
+          'Взбить 200 мл молока до бархатистой эластичной пены.',
+          'Выполнить латте-арт розетта/сердце.'
+        ],
+        goldenTimeSec: 120
+      },
+      'ice_caramel': {
+        title: 'Айс Карамель (350 мл)',
+        steps: [
+          'Наполнить стакан кубиками очищенного льда (150г).',
+          'Добавить 200мл холодного молока и 20мл карамельного топинга.',
+          'Сверху вылить свежий шот эспрессо.'
+        ],
+        goldenTimeSec: 180
+      },
+      'cheesecake': {
+        title: 'Чизкейк Сан-Себастьян',
+        steps: [
+          'Достать порцию из витрины.',
+          'Подать на фирменной тарелке с топингом по желанию.'
+        ],
+        goldenTimeSec: 60
+      }
+    };
+
+    // SYSTEM STATE
+    let activeRole = 'guest';
+    let currentFilter = 'all';
+    let activeCustomizeItem = null;
+    let activeSize = 'M (350 мл)';
+    let activeMilk = 'Обычное 3.2%';
+    let activeSugar = '100% (Стандарт)';
+    
+    let activeBarista = 'Асан (Бариста #1)';
+    let shiftCompletedOrders = 0;
+    let ordersQueue = [];
+    let selectedOrderForRecipe = null;
+
+    let guestTrackerTimerInterval = null;
+    let guestTrackerSec = 0;
+
+    // BARISTA PACE TIMER STATE
+    let baristaTimerInterval = null;
+
+    // INITIALIZATION
+    window.onload = function() {
+      renderKioskMenu();
+      renderInventoryToggleList();
+    };
+
+    // SWITCH ROLE (GUEST TOUCH KIOSK VS BARISTA TERMINAL)
+    function switchRole(role) {
+      activeRole = role;
+      const vGuest = document.getElementById('view-guest');
+      const vBarista = document.getElementById('view-barista');
+      const navGuest = document.getElementById('nav-guest');
+      const navBarista = document.getElementById('nav-barista');
+
+      if (role === 'guest') {
+        vGuest.classList.remove('hidden');
+        vBarista.classList.add('hidden');
+        navGuest.className = "flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition-all bg-brand-gold text-brand-deepBlack shadow-md";
+        navBarista.className = "flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition-all text-stone-400 hover:text-white";
+      } else {
+        vGuest.classList.add('hidden');
+        vBarista.classList.remove('hidden');
+        navBarista.className = "flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition-all bg-brand-gold text-brand-deepBlack shadow-md";
+        navGuest.className = "flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition-all text-stone-400 hover:text-white";
+      }
+    }
+
+    // RENDER KIOSK MENU
+    function renderKioskMenu() {
+      const grid = document.getElementById('kiosk-menu-grid');
+      grid.innerHTML = '';
+
+      const filtered = currentFilter === 'all' 
+        ? menuData 
+        : menuData.filter(i => i.cat === currentFilter);
+
+      filtered.forEach(item => {
+        const isOut = !item.available;
+        const cardHTML = `
+          <div class="kiosk-card p-4 rounded-2xl border border-brand-border flex flex-col justify-between ${isOut ? 'opacity-50' : 'hover:border-brand-gold'} transition">
+            <div class="space-y-2">
+              <div class="flex items-start justify-between">
+                <div class="w-12 h-12 rounded-xl bg-brand-espresso flex items-center justify-center text-brand-gold text-2xl font-bold">
+                  <i class="fa-solid ${item.cat === 'dessert' ? 'fa-cake-candles' : 'fa-mug-hot'}"></i>
+                </div>
+                ${isOut 
+                  ? `<span class="bg-red-950 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded border border-red-800">Нет в наличии</span>`
+                  : `<span class="text-[10px] bg-brand-deepBlack text-stone-400 px-2 py-0.5 rounded border border-brand-border"><i class="fa-solid fa-clock"></i> ${item.time}</span>`
+                }
+              </div>
+              <h4 class="text-sm font-bold text-white">${item.name}</h4>
+              <p class="text-xs text-stone-400 line-clamp-2"><strong class="text-stone-300">Состав:</strong> ${item.comp}</p>
+            </div>
+            <div class="pt-4 border-t border-brand-border/60 flex items-center justify-between mt-3">
+              <span class="text-sm font-extrabold text-brand-gold">${item.price}</span>
+              ${!isOut 
+                ? `<button onclick="openCustomizeModal('${item.id}')" class="px-3.5 py-1.5 bg-brand-gold hover:bg-brand-latte text-brand-deepBlack font-bold text-xs rounded-xl transition">Заказать</button>`
+                : `<button disabled class="px-3.5 py-1.5 bg-stone-800 text-stone-600 font-bold text-xs rounded-xl cursor-not-allowed">Недоступно</button>`
+              }
+            </div>
+          </div>
+        `;
+        grid.insertAdjacentHTML('beforeend', cardHTML);
+      });
+    }
+
+    // CATEGORY FILTER
+    function filterCategory(cat) {
+      currentFilter = cat;
+      ['all', 'coffee', 'cold', 'tea', 'dessert'].forEach(c => {
+        const btn = document.getElementById(`cat-${c}`);
+        if (c === cat) {
+          btn.className = "px-5 py-2.5 rounded-xl bg-brand-gold text-brand-deepBlack font-bold text-xs shrink-0 transition";
+        } else {
+          btn.className = "px-5 py-2.5 rounded-xl bg-brand-espresso text-stone-300 font-bold text-xs shrink-0 border border-brand-border hover:border-brand-gold transition";
+        }
+      });
+      renderKioskMenu();
+    }
+
+    // CUSTOMIZE MODAL
+    function openCustomizeModal(itemId) {
+      activeCustomizeItem = menuData.find(i => i.id === itemId);
+      if (!activeCustomizeItem) return;
+
+      document.getElementById('cust-item-title').innerText = activeCustomizeItem.name;
+      document.getElementById('cust-item-comp').innerText = "Состав: " + activeCustomizeItem.comp;
+      document.getElementById('cust-item-price').innerText = activeCustomizeItem.price;
+      document.getElementById('cust-grammage-input').value = '';
+
+      document.getElementById('modal-customize').classList.remove('hidden');
+    }
+
+    function selectSizeOpt(btn, size) {
+      activeSize = size;
+      document.querySelectorAll('.size-btn').forEach(b => {
+        b.className = "size-btn p-2 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 text-center font-medium";
+      });
+      btn.className = "size-btn p-2 rounded-xl border border-brand-gold bg-brand-gold/20 text-white text-center font-medium";
+    }
+
+    function selectMilkOpt(btn, milk) {
+      activeMilk = milk;
+      document.querySelectorAll('.milk-btn').forEach(b => {
+        b.className = "milk-btn p-2.5 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 font-medium text-center";
+      });
+      btn.className = "milk-btn p-2.5 rounded-xl border border-brand-gold bg-brand-gold/20 text-white font-medium text-center";
+    }
+
+    function selectSugarOpt(btn, sugar) {
+      activeSugar = sugar;
+      document.querySelectorAll('.sugar-btn').forEach(b => {
+        b.className = "sugar-btn p-2 rounded-xl border border-brand-border bg-brand-deepBlack text-stone-400 text-center";
+      });
+      btn.className = "sugar-btn p-2 rounded-xl border border-brand-gold bg-brand-gold/20 text-white text-center";
+    }
+
+    // PROCEED TO QR PAYMENT MODAL
+    function proceedToPayment() {
+      if (!activeCustomizeItem) return;
+      document.getElementById('qr-total-amount').innerText = activeCustomizeItem.price;
+      closeModal('modal-customize');
+      document.getElementById('modal-qr-payment').classList.remove('hidden');
+    }
+
+    // SUBMIT GUEST ORDER (AFTER QR PAYMENT)
+    function submitGuestOrder() {
+      if (!activeCustomizeItem) return;
+
+      const grammageNotes = document.getElementById('cust-grammage-input').value.trim();
+      const orderId = '#GC-' + Math.floor(500 + Math.random() * 400);
+
+      const newOrder = {
+        id: orderId,
+        itemId: activeCustomizeItem.id,
+        name: activeCustomizeItem.name + ` (${activeSize.split(' ')[0]})`,
+        price: activeCustomizeItem.price,
+        size: activeSize,
+        milk: activeMilk,
+        sugar: activeSugar,
+        grammage: grammageNotes || 'Стандарт',
+        status: 'received', // received -> preparing -> ready -> delivered
+        timeReceived: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        prepTimerSec: 0,
+        prepTimerActive: false,
+        finalPrepTimeStr: null
+      };
+
+      ordersQueue.unshift(newOrder);
+      renderBaristaQueue();
+      closeModal('modal-qr-payment');
+
+      // Start Guest Tracker Timer
+      document.getElementById('tracker-status-text').innerText = `Заказ ${orderId} подтвержден и ожидает принятия бариста`;
+      startGuestTrackerTimer();
+
+      // Show Pending Badge on Barista Tab
+      const badge = document.getElementById('pending-badge');
+      badge.innerText = ordersQueue.filter(o => o.status !== 'delivered').length;
+      badge.classList.remove('hidden');
+
+      alert(`Оплата успешна! Заказ ${orderId} отправлен на POS-терминал бариста.`);
+    }
+
+    // GUEST TRACKER TIMER
+    function startGuestTrackerTimer() {
+      if (guestTrackerTimerInterval) clearInterval(guestTrackerTimerInterval);
+      guestTrackerSec = 0;
+      guestTrackerTimerInterval = setInterval(() => {
+        guestTrackerSec++;
+        const mins = Math.floor(guestTrackerSec / 60);
+        const secs = guestTrackerSec % 60;
+        document.getElementById('tracker-timer').innerText = 
+          `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }, 1000);
+    }
+
+    // RENDER BARISTA QUEUE
+    function renderBaristaQueue() {
+      const container = document.getElementById('barista-queue-list');
+      container.innerHTML = '';
+
+      if (ordersQueue.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-xs text-stone-500">Нет активных заказов</div>`;
+        return;
+      }
+
+      ordersQueue.forEach(order => {
+        let badgeColor = "bg-amber-950 text-amber-300 border-amber-800";
+        let statusLabel = "Новый";
+
+        if (order.status === 'preparing') {
+          badgeColor = "bg-blue-950 text-blue-300 border-blue-800";
+          statusLabel = "В работе";
+        } else if (order.status === 'ready') {
+          badgeColor = "bg-emerald-950 text-emerald-300 border-emerald-800";
+          statusLabel = "Готов";
+        } else if (order.status === 'delivered') {
+          badgeColor = "bg-stone-900 text-stone-400 border-stone-700";
+          statusLabel = "Выдан";
+        }
+
+        const isSelected = selectedOrderForRecipe && selectedOrderForRecipe.id === order.id;
+
+        const cardHTML = `
+          <div onclick="selectOrderForBarista('${order.id}')" class="kiosk-card p-4 rounded-xl border ${isSelected ? 'border-brand-gold gold-glow' : 'border-brand-border'} hover:border-brand-gold cursor-pointer transition space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-stone-400">${order.id} • ${order.timeReceived}</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${badgeColor}">${statusLabel}</span>
+            </div>
+            <h4 class="text-sm font-bold text-white">${order.name}</h4>
+            <div class="text-[11px] text-stone-300 bg-brand-deepBlack/80 p-2.5 rounded-lg border border-brand-border/60 space-y-0.5">
+              <p>• <strong>Молоко:</strong> ${order.milk}</p>
+              <p>• <strong>Сахар:</strong> ${order.sugar}</p>
+              <p>• <strong>Граммовка:</strong> <span class="text-brand-gold">${order.grammage}</span></p>
+            </div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', cardHTML);
+      });
+    }
+
+    // SELECT ORDER FOR RECIPE & WORKFLOW
+    function selectOrderForBarista(orderId) {
+      selectedOrderForRecipe = ordersQueue.find(o => o.id === orderId);
+      if (!selectedOrderForRecipe) return;
+
+      renderBaristaQueue();
+      renderRecipePanel();
+    }
+
+    // RENDER BARISTA RECIPE PANEL
+    function renderRecipePanel() {
+      const panel = document.getElementById('barista-recipe-panel');
+      const order = selectedOrderForRecipe;
+      const recipe = recipesDB[order.itemId] || { title: order.name, steps: ['Приготовить по инструкции.'], goldenTimeSec: 180 };
+
+      let actionButtons = '';
+      if (order.status === 'received') {
+        actionButtons = `
+          <button onclick="updateOrderStatus('preparing')" class="w-full py-3.5 bg-brand-gold hover:bg-brand-latte text-brand-deepBlack font-black rounded-xl text-xs transition shadow-lg">
+            <i class="fa-solid fa-play"></i> Принять заказ & Начать делать
+          </button>
+        `;
+      } else if (order.status === 'preparing') {
+        actionButtons = `
+          <button onclick="updateOrderStatus('ready')" class="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl text-xs transition shadow-lg">
+            <i class="fa-solid fa-mug-hot"></i> Заказ готов (Уведомить гостя)
+          </button>
+        `;
+      } else if (order.status === 'ready') {
+        actionButtons = `
+          <button onclick="updateOrderStatus('delivered')" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs transition shadow-lg flex items-center justify-center gap-2">
+            <i class="fa-solid fa-check-double"></i>
+            <span>Заказ выдан (Остановить таймер смены)</span>
+          </button>
+        `;
+      } else {
+        actionButtons = `
+          <div class="p-3 bg-stone-900 border border-stone-800 text-stone-400 rounded-xl text-center text-xs font-bold">
+            <i class="fa-solid fa-circle-check text-emerald-500"></i> Заказ выдан • Финальное время приготовления: <span class="text-brand-gold font-mono">${order.finalPrepTimeStr}</span>
+          </div>
+        `;
+      }
+
+      const mins = Math.floor(order.prepTimerSec / 60);
+      const secs = order.prepTimerSec % 60;
+      const timerDisplay = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+      panel.innerHTML = `
+        <div class="flex items-start justify-between border-b border-brand-border pb-3">
+          <div>
+            <span class="text-xs text-stone-400">Техкарта и индивидуальная граммовка</span>
+            <h3 class="text-lg font-bold text-white">${recipe.title}</h3>
+          </div>
+          <div class="text-right bg-brand-deepBlack px-3 py-1.5 rounded-xl border border-brand-border">
+            <span class="text-[9px] text-stone-400 block uppercase">Таймер приготовления</span>
+            <span id="barista-live-timer" class="text-base font-mono font-bold ${order.status === 'preparing' ? 'text-amber-400 animate-pulse' : 'text-brand-gold'}">${order.finalPrepTimeStr || timerDisplay}</span>
+          </div>
+        </div>
+
+        <!-- Custom Grammage Request Box -->
+        <div class="p-3.5 bg-brand-espresso border border-brand-gold/30 rounded-xl text-xs space-y-1">
+          <span class="text-brand-gold font-bold uppercase tracking-wider block">Модификаторы гостя (${order.id}):</span>
+          <p class="text-stone-200">• Размер: <strong>${order.size}</strong> | Молоко: <strong>${order.milk}</strong> | Сахар: <strong>${order.sugar}</strong></p>
+          <p class="text-stone-200">• Пожелания от клиента: <strong class="text-brand-gold">${order.grammage}</strong></p>
+        </div>
+
+        <!-- Step-by-step instructions -->
+        <div class="space-y-2">
+          <span class="text-xs text-stone-400 font-bold uppercase tracking-wider">Инструкция приготовления:</span>
+          ${recipe.steps.map((step, idx) => `
+            <label class="flex items-start gap-3 p-2.5 rounded-xl bg-brand-deepBlack border border-brand-border text-xs text-stone-300 cursor-pointer hover:border-brand-gold transition">
+              <input type="checkbox" class="mt-0.5 rounded accent-brand-gold">
+              <span><strong>Шаг ${idx+1}:</strong> ${step}</span>
+            </label>
+          `).join('')}
+        </div>
+
+        <!-- Action Button -->
+        <div class="pt-2">
+          ${actionButtons}
+        </div>
+      `;
+    }
+
+    // UPDATE ORDER STATUS WORKFLOW & BARISTA TIMER CONTROL
+    function updateOrderStatus(newStatus) {
+      if (!selectedOrderForRecipe) return;
+
+      selectedOrderForRecipe.status = newStatus;
+
+      if (newStatus === 'preparing') {
+        document.getElementById('tracker-status-text').innerText = `Бариста приступает к приготовлению ${selectedOrderForRecipe.name}`;
+        
+        // Start Barista Prep Timer
+        selectedOrderForRecipe.prepTimerActive = true;
+        startBaristaPaceTimer();
+
+      } else if (newStatus === 'ready') {
+        document.getElementById('tracker-status-text').innerText = `Заказ ${selectedOrderForRecipe.id} ГОТОВ! Заберите на стойке выдачи.`;
+      
+      } else if (newStatus === 'delivered') {
+        // STOP TIMER COMPLETELY
+        selectedOrderForRecipe.prepTimerActive = false;
+        clearInterval(baristaTimerInterval);
+
+        const mins = Math.floor(selectedOrderForRecipe.prepTimerSec / 60);
+        const secs = selectedOrderForRecipe.prepTimerSec % 60;
+        selectedOrderForRecipe.finalPrepTimeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+        document.getElementById('tracker-status-text').innerText = `Заказ ${selectedOrderForRecipe.id} выдан гостю. Спасибо!`;
+        
+        shiftCompletedOrders++;
+        document.getElementById('shift-completed-count').innerText = `${shiftCompletedOrders} позиций`;
+      }
+
+      renderBaristaQueue();
+      renderRecipePanel();
+
+      const pending = ordersQueue.filter(o => o.status !== 'delivered').length;
+      const badge = document.getElementById('pending-badge');
+      badge.innerText = pending;
+      if (pending === 0) badge.classList.add('hidden');
+    }
+
+    // BARISTA PACE TIMER INTERVAL
+    function startBaristaPaceTimer() {
+      if (baristaTimerInterval) clearInterval(baristaTimerInterval);
+
+      baristaTimerInterval = setInterval(() => {
+        if (selectedOrderForRecipe && selectedOrderForRecipe.status === 'preparing') {
+          selectedOrderForRecipe.prepTimerSec++;
+          const timerEl = document.getElementById('barista-live-timer');
+          if (timerEl) {
+            const mins = Math.floor(selectedOrderForRecipe.prepTimerSec / 60);
+            const secs = selectedOrderForRecipe.prepTimerSec % 60;
+            timerEl.innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          }
+        }
+      }, 1000);
+    }
+
+    // INVENTORY MANAGER ("Отметить нет продуктов")
+    function openInventoryManager() {
+      const container = document.getElementById('inventory-toggle-list');
+      container.innerHTML = '';
+
+      menuData.forEach(item => {
+        const toggleHTML = `
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-brand-deepBlack border border-brand-border">
+            <span class="font-medium text-white">${item.name}</span>
+            <button onclick="toggleItemAvailability('${item.id}')" class="px-3 py-1 rounded-lg text-[10px] font-bold ${item.available ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-red-950 text-red-400 border border-red-800'}">
+              ${item.available ? 'В наличии' : 'Нет в наличии'}
+            </button>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', toggleHTML);
+      });
+
+      document.getElementById('modal-inventory').classList.remove('hidden');
+    }
+
+    function toggleItemAvailability(id) {
+      const item = menuData.find(i => i.id === id);
+      if (item) {
+        item.available = !item.available;
+        openInventoryManager();
+        renderKioskMenu();
+      }
+    }
+
+    // BARISTA ACCOUNT SWITCHER
+    function switchBaristaAccount() {
+      document.getElementById('modal-barista-switch').classList.remove('hidden');
+    }
+
+    function setBaristaAccount(name) {
+      activeBarista = name;
+      document.getElementById('pos-barista-name').innerText = `Бариста: ${name}`;
+      document.getElementById('active-barista-name').innerText = name;
+      closeModal('modal-barista-switch');
+    }
+
+    // CLOSE SHIFT REPORT
+    function closeBaristaShift() {
+      alert(`ОТЧЕТ ЗАКРЫТИЯ СМЕНЫ:\nБариста: ${activeBarista}\nВыполнено заказов: ${shiftCompletedOrders}\nДанные синхронизированы с Coyote Cloud.`);
+    }
+
+    // KIOSK FAQ BOT
+    function askKioskFAQ() {
+      const input = document.getElementById('kiosk-faq-input');
+      const val = input.value.trim().toLowerCase();
+      if (!val) return;
+
+      if (val.includes('глютен') || val.includes('аллерг')) {
+        alert("Помощник Global Coffee: Напитки не содержат глютен, кроме десертов с мукой. Бариста может приготовить кофе на альтернативном молоке!");
+      } else {
+        alert("Помощник Global Coffee: Информация о составе и аллергенах передана бариста на смене.");
+      }
+      input.value = '';
+    }
+
+    // MODAL HELPERS
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
